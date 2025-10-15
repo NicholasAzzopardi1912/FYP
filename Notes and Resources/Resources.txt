@@ -1,0 +1,5 @@
+Disretizing using the median for the classification dataset
+https://medium.com/data-science/discretization-explained-a-visual-guide-with-code-examples-for-beginners-f056af9102fa
+
+The use of Standard Scalar from sklearn
+https://www.digitalocean.com/community/tutorials/standardscaler-function-in-python
