@@ -6,8 +6,8 @@ from tensorflow.keras.optimizers import Adam
 from sklearn.metrics import accuracy_score, classification_report
 import matplotlib.pyplot as plt
 
-# Loading the Audio Modality
-audio_df = pd.read_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/audio_data.csv")
+# Loading the Video Modality
+audio_df = pd.read_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/video_data.csv")
 
 # Splitting the data into features and labels
 X = audio_df.drop(columns=["median_arousal", "median_valence", "arousal_class", "valence_class"])
@@ -60,7 +60,7 @@ print(classification_report(valence_true, valence_pred, digits=3))
 # It basically shows how well the model is learning to classify the data in comparison to the validation set
 plt.plot(history.history['accuracy'], label='Train Accuracy')
 plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-plt.title('Audio Modality Classification Accuracy')
+plt.title('Video Modality Classification Accuracy')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend()
@@ -70,7 +70,7 @@ plt.show()
 # Helps to determine overfitting during training as the models error evolves when making predictions
 plt.plot(history.history['loss'], label='Train Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.title('Audio Modality Classification Loss')
+plt.title('Video Modality Classification Loss')
 plt.xlabel('Epoch')
 plt.ylabel('Binary Cross-Entropy')
 plt.legend()

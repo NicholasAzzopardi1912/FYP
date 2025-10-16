@@ -6,8 +6,8 @@ from tensorflow.keras.optimizers import Adam
 from sklearn.metrics import accuracy_score, classification_report
 import matplotlib.pyplot as plt
 
-# Loading the Audio Modality
-audio_df = pd.read_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/audio_data.csv")
+# Loading the Physiological Modality
+audio_df = pd.read_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/physio_data.csv")
 
 # Splitting the data into features and labels
 X = audio_df.drop(columns=["median_arousal", "median_valence", "arousal_class", "valence_class"])
@@ -33,6 +33,7 @@ model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', m
 history = model.fit(x_train, y_train, epochs=50, batch_size=32, validation_split=0.2, verbose = 1)
 
 # On average, across both arousal and valence outputs and across all test samples, the binary cross-entropy error is produced
+# This basically tells you the accuracy of the model when both are predicted together, by both im referring to arrousal and valence
 loss, accuracy = model.evaluate(x_test, y_test)
 print(f"\nOverall Test Loss: {loss:.4f}")
 print(f"Overall Test Accuracy (combined): {accuracy:.4f}")
@@ -60,7 +61,7 @@ print(classification_report(valence_true, valence_pred, digits=3))
 # It basically shows how well the model is learning to classify the data in comparison to the validation set
 plt.plot(history.history['accuracy'], label='Train Accuracy')
 plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-plt.title('Audio Modality Classification Accuracy')
+plt.title('Physiological Modality Classification Accuracy')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 plt.legend()
@@ -70,7 +71,7 @@ plt.show()
 # Helps to determine overfitting during training as the models error evolves when making predictions
 plt.plot(history.history['loss'], label='Train Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.title('Audio Modality Classification Loss')
+plt.title('Physiological Modality Classification Loss')
 plt.xlabel('Epoch')
 plt.ylabel('Binary Cross-Entropy')
 plt.legend()
