@@ -6,8 +6,13 @@ from sklearn.preprocessing import StandardScaler
 file_path = "C:/Users/nicho/OneDrive/University/Year 3/FYP/all_participants_data.csv"
 df = pd.read_csv(file_path)
 
+df['Participant'] = df['Participant'].astype('str')
+
+target_columns = ['median_arousal', 'median_valence']
+ID_column = ['Participant']
+
 # Extracting all the required features except for 'Participant', 'median_arousal', and 'median_valence'
-features = [col for col in df.columns if col not in ['Participant', 'median_arousal', 'median_valence']]
+features = [col for col in df.columns if col not in target_columns + [ID_column]]
 
 # Extracting the features and target variables for regression
 X = df[features]
@@ -19,6 +24,9 @@ y_valence = df['median_valence']
 scalar = StandardScaler()
 X_scaled = scalar.fit_transform(X)
 X_scaled_df = pd.DataFrame(X_scaled, columns=features) # Array goes back to Dataframe
+
+# Adding back the ID column to the scaled features DataFrame
+X_scaled_df[ID_column] = df[ID_column].values
 
 # Computing the median values for arousal and valence to create binary classification targets
 median_arousal = y_arousal.median()

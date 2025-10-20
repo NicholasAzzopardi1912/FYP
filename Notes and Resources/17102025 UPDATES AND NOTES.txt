@@ -1,0 +1,20 @@
+17/10/2025 UPDATES AND NOTES
+two separate DNNs for all 6 models, one training arousal and one for valence
+
+rather than using 80/20 default split, 5 cross validation group 5 fold based on participants (participant number is treated as ID although dataset was published like so. between train/test
+
+Now since k = 5, this will train the model 5 times iteratively
+
+Like this we have individual people in the train set and individual people in the test set
+group k-fold
+group 5-fold
+same thing just k = 5
+FOR ALL MODELS ABOVE 
+
+
+maybe look at developing a custom loss function - for teacher models in the next stage
+
+
+ensure models are developed using tensorflow
+
+output arousal or valence with the respective accuracy and classification reports produced for each

@@ -8,13 +8,14 @@ audio_features = [col for col in df.columns if col.startswith("ComParE") or col 
 video_features = [col for col in df.columns if col.startswith("VIDEO") or col == "Face_detection_probability"]
 physio_features = [col for col in df.columns if col.startswith("ECG") or col.startswith("EDA")]
 
+ID_column = ['Participant']
 # Extract target columns
 target_columns = ['median_arousal', 'median_valence', 'arousal_class', 'valence_class']
 
 # Create separate DataFrames for each modality
-audio_df = df[audio_features + target_columns]
-video_df = df[video_features + target_columns]
-physio_df = df[physio_features + target_columns]
+audio_df = df[ID_column + audio_features + target_columns]
+video_df = df[ID_column + video_features + target_columns]
+physio_df = df[ID_column + physio_features + target_columns]
 
 # Save the modality-specific DataFrames to new CSV files
 audio_df.to_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/audio_data.csv", index=False)

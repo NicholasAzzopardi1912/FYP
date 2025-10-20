@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 audio_df = pd.read_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/audio_data.csv")
 
 # Splitting the dataset into features and target variables
-X = audio_df.drop(columns=["median_arousal", "median_valence", "arousal_class", "valence_class"])
+X = audio_df.drop(columns=["Participant", "median_arousal", "median_valence", "arousal_class", "valence_class"])
 y = audio_df[["median_arousal", "median_valence"]]
 
 # Splitting the data into training and testing sets

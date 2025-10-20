@@ -4,11 +4,16 @@ https://medium.com/data-science/discretization-explained-a-visual-guide-with-cod
 The use of Standard Scalar from sklearn
 https://www.digitalocean.com/community/tutorials/standardscaler-function-in-python
 
-The Adam Optimizer
-https://www.geeksforgeeks.org/deep-learning/adam-optimizer/
+The ADAM optimizer
+https://arxiv.org/abs/1412.6980
 
-Distinguishing and Choosing between the MAE and MSE
-https://medium.com/@elmahfoudradwane/choosing-the-right-loss-function-mse-vs-mae-in-regression-problems-199e37d25e7b
+https://www.datacamp.com/tutorial/adam-optimizer-tutorial
 
-Nom of layers in dnn
-https://medium.com/geekculture/introduction-to-neural-network-2f8b8221fbd3
+The Level of Dropout
+https://towardsdatascience.com/dropout-in-neural-networks-47a162d621d9/#:~:text=The%20term%20%22dropout%22%20refers%20to,solves%20the%20problem%20of%20overfitting?
+
+The ReLu Activation Function
+https://towardsdatascience.com/activation-functions-in-neural-networks-how-to-choose-the-right-one-cb20414c04e5/#:~:text=Rectified%20Linear%20Unit%20(ReLU),learning%20process%20is%20significantly%20accelerated.
+
+Rather than using the default 80/20 train test split, resort to using 5 cross validation for all models
+https://scikit-learn.org/1.0/modules/generated/sklearn.model_selection.GroupKFold.html
