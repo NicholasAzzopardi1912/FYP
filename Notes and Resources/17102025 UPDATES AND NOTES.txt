@@ -18,3 +18,5 @@ maybe look at developing a custom loss function - for teacher models in the next
 ensure models are developed using tensorflow
 
 output arousal or valence with the respective accuracy and classification reports produced for each
+
+Consider reducing dropout from 0.3 to 0.1 since the baseline models only have a couple of layers
