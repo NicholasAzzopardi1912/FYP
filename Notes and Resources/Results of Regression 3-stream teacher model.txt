@@ -1,0 +1,10 @@
+Regression 3-stream teacher model
+ Average Cross-Validation Results
+	AROUSAL Regression Teacher
+	Mean MAE: 0.1306 ± 0.0100
+	Mean RMSE: 0.1647 ± 0.0112
+
+ Average Cross-Validation Results
+	VALENCE Regression Teacher
+	Mean MAE: 0.0937 ± 0.0134
+	Mean RMSE: 0.1188 ± 0.0168

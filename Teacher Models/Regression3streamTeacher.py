@@ -20,6 +20,7 @@ import pandas as pd
 # hidden_units: A tuple defining the number of units in each hidden layer
 # dropout: Dropout rate to be applied after each hidden layer
 # l2: L2 regularization factor helping to penalise large weights
+
 def encoder_branch(name_prefix, input_dim, hidden_units=(128,64), dropout=0.3, l2=1e-4):
     # Input vector for the modality
     inputs = layers.Input(shape=(input_dim,), name=f"{name_prefix}_input")
