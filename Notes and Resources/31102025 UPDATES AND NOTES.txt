@@ -1,0 +1,25 @@
+dont try to improve anything for now
+
+
+On the Trello board their is the following: UPDATE YOUR EVALUATION METRICS TO THE FOLLOWING:
+
+For each fold save the following training and testing performance metrics:
+
+Regression (baseline models + privileged information models)
+
+Pearson’s correlation coefficient
+
+Mean squared error
+
+Classification (baseline models + privileged information models)
+
+F1 score
+
+Accuracy
+
+Pearson’s correlation coefficient using the probabilistic outputs of the models
+
+
+THEN
+google spreadsheet to store and share results with him
+get to work on the classification teacher model
