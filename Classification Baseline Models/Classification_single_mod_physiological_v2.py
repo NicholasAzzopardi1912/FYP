@@ -4,7 +4,8 @@ from sklearn.model_selection import GroupKFold
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.optimizers import Adam
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, f1_score
+from scipy.stats import pearsonr
 from tensorflow.keras.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
 
@@ -42,7 +43,11 @@ def build_classification_physio_model(input):
 # Each fold shall train and test the model with diverse participant groups
 def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
     gkf = GroupKFold(n_splits=n_splits) # Setting the splitter
-    fold_acc = []
+    
+    fold_results = {
+        "fold": [], "train_accuracy": [], "test_accuracy": [],
+        "train_f1": [], "test_f1": [], "train_pearson": [], "test_pearson": []
+    }
 
     print(f"\nStarting GroupKFold Cross-Validation for {label_name} Model:\n")
     # Iterate over each fold, split the data based on Participant ID, build and train the model, then evaluate
@@ -60,33 +65,61 @@ def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
         early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
 
         # Training the model with a validation split of 20%
-        model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.2, callbacks=[early_stopping], verbose=0)
+        history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.2, callbacks=[early_stopping], verbose=0)
 
-        # Making predictions on the test set 
-        predictions_probability = model.predict(X_test, verbose=0)
-        y_predict = (predictions_probability > 0.5).astype(int).flatten()
+        # Making probabilistic predictions on both the train and test set 
+        train_probability = model.predict(X_train, verbose=0).flatten()
+        test_probability = model.predict(X_test, verbose=0).flatten()
 
-
-        # Storing the metrics for the current fold
-        accuracy = accuracy_score(y_test, y_predict)
-        fold_acc.append(accuracy)
-
-        # Displaying classification report for the current fold
-        print(f" Fold {fold} Accuracy: {accuracy:.4f}")
-        print(classification_report(y_test, y_predict, digits=3))
+        # Converting probabilities to class labels using a threshold of 0.5
+        train_predictions = (train_probability > 0.5).astype(int)
+        test_predictions = (test_probability > 0.5).astype(int)
 
 
-    # Printing the overall mean accuracy across all folds
-    print(f"\n Average {label_name} Classification Performance across {n_splits} folds:")
-    print(f" Accuracy: {np.mean(fold_acc):.4f} ± {np.std(fold_acc):.4f}")
+        # Calculating the metrics for the current fold
+        train_accuracy = accuracy_score(y_train, train_predictions)
+        test_accuracy = accuracy_score(y_test, test_predictions)
+        train_f1 = f1_score(y_train, train_predictions)
+        test_f1 = f1_score(y_test, test_predictions)
+        train_pearson, _ = pearsonr(y_train, train_probability)
+        test_pearson, _ = pearsonr(y_test, test_probability)
+
+        # Storing the results of the metrics for the current fold
+        fold_results["fold"].append(fold)
+        fold_results["train_accuracy"].append(train_accuracy)
+        fold_results["test_accuracy"].append(test_accuracy)
+        fold_results["train_f1"].append(train_f1)
+        fold_results["test_f1"].append(test_f1)
+        fold_results["train_pearson"].append(train_pearson)
+        fold_results["test_pearson"].append(test_pearson)
+
+        print(f" Train Accuracy: {train_accuracy:.4f}, F1 Score: {train_f1:.4f}, Pearson Correlation: {train_pearson:.4f}")
+        print(f" Test Accuracy: {test_accuracy:.4f}, F1 Score: {test_f1:.4f}, Pearson Correlation: {test_pearson:.4f}")
 
 
-    # Plotting the performance metrics across folds
+    # Summarizing the average performance across all folds
+    print(f"\n Average {label_name} Model Performance across {n_splits} Folds:")
+    print(f" Train Accuracy: {np.mean(fold_results['train_accuracy']):.4f} ± {np.std(fold_results['train_accuracy']):.4f}")
+    print(f" Test Accuracy: {np.mean(fold_results['test_accuracy']):.4f} ± {np.std(fold_results['test_accuracy']):.4f}")
+    print(f" Train F1 Score: {np.mean(fold_results['train_f1']):.4f} ± {np.std(fold_results['train_f1']):.4f}")
+    print(f" Test F1 Score: {np.mean(fold_results['test_f1']):.4f} ± {np.std(fold_results['test_f1']):.4f}")
+    print(f" Train Pearson Correlation: {np.mean(fold_results['train_pearson']):.4f} ± {np.std(fold_results['train_pearson']):.4f}")
+    print(f" Test Pearson Correlation: {np.mean(fold_results['test_pearson']):.4f} ± {np.std(fold_results['test_pearson']):.4f}")
+
+
+    # Saving the fold results to a CSV file
+    results_df = pd.DataFrame(fold_results)
+    results_df.to_csv(f"{label_name.lower()}_classification_physio_groupkfold_results.csv", index=False)
+    print(f"\nSaved fold results to {label_name.lower()}_classification_physio_groupkfold_results.csv")
+
+    # Plotting the test metrics across folds
     plt.figure(figsize=(6, 4))
-    plt.plot(fold_acc, marker ='o', label = 'Accuracy')
-    plt.title(f'{label_name} Classification Accuracy across Folds')
+    plt.plot(results_df["fold"], results_df["test_accuracy"], marker='o', label='Test Accuracy')
+    plt.plot(results_df["fold"], results_df["test_f1"], marker='o', label='Test F1')
+    plt.plot(results_df["fold"], results_df["test_pearson"], marker='o', label='Test Pearson r')
+    plt.title(f'{label_name} Classification Performance Across Folds')
     plt.xlabel('Fold')
-    plt.ylabel('Accuracy')
+    plt.ylabel('Score')
     plt.legend()
     plt.show()
 

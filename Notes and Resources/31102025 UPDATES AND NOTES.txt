@@ -19,7 +19,13 @@ Accuracy
 
 Pearson’s correlation coefficient using the probabilistic outputs of the models
 
+***********************************************************************************************
 
-THEN
-google spreadsheet to store and share results with him
-get to work on the classification teacher model
+Where we currently at:
+All 6 single modality models have been updated with the correct metrics and storing of metrics
+
+Now got to update the metrics for the 3 stream regression teacher model and store them
+
+Then get to work on the 3 stream classification teacher model
+
+Then google spreadsheet to store and share results with him
