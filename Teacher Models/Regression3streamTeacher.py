@@ -13,6 +13,8 @@ from sklearn.model_selection import GroupKFold
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.metrics import mean_squared_error
+from scipy.stats import pearsonr
 
 # This function will create an encoder (branch) for a given modality
 # name_prefix: A string prefix to name the layers uniquely for each branch
@@ -65,11 +67,8 @@ def build_teacher_regression(input_shapes, target_name='arousal', branch_hidden=
     # Defining the full model with the three input branches and single output
     model = Model(inputs=[audio_input, video_input, physio_input], outputs=output, name=f'3stream_regression_teacher_{target_name}')
 
-    # Compiling the model using the Adam optimizer, MSE for regression loss, and MAE as a metric
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
-                  loss='mse',
-                  metrics=[tf.keras.metrics.MeanAbsoluteError(name='mae'),
-                           tf.keras.metrics.RootMeanSquaredError(name='rmse')])
+    # Compiling the model using the Adam optimizer and Mean Squared Error loss
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss='mse')
     
     return model
 
@@ -97,21 +96,26 @@ X_physio = physio_df.drop(
 def train_teacher_model(x_audio, x_video, x_physio, y, groups, target_name='arousal', n_splits=5, epochs=200, batch_size=64, patience=15):
     gkf = GroupKFold(n_splits=n_splits)
     fold = 1
-    mae_scores, rmse_scores = [], []
-
+    
+    mse_scores, pearson_scores = [], []
+    fold_results = []
+    
     print(f"Starting Group K-Fold Cross-Validation Training for {target_name.upper()} ")
 
     for train_idx, val_idx in gkf.split(x_audio, y, groups):
         print(f"\nTraining fold {fold}/{n_splits}")
 
+        # Splitting the data into training and validation sets for the current fold
         x_audio_train, x_audio_val = x_audio[train_idx], x_audio[val_idx]
         x_video_train, x_video_val = x_video[train_idx], x_video[val_idx]
         x_physio_train, x_physio_val = x_physio[train_idx], x_physio[val_idx]
         y_train, y_val = y[train_idx], y[val_idx]
 
+        # Building the model for the current fold
         input_shapes = (x_audio.shape[1], x_video.shape[1], x_physio.shape[1])
         model = build_teacher_regression(input_shapes, target_name=target_name)
 
+        # The model is trained with early stopping based on validation loss
         model.fit(
             [x_audio_train, x_video_train, x_physio_train], y_train,
             validation_data=([x_audio_val, x_video_val, x_physio_val], y_val),
@@ -120,27 +124,48 @@ def train_teacher_model(x_audio, x_video, x_physio, y, groups, target_name='arou
             callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, restore_best_weights=True)],
             verbose=1)
 
-        val_loss, val_mae, val_rmse = model.evaluate([x_audio_val, x_video_val, x_physio_val], y_val, verbose=0)
+        # Making predictions on validation set
+        y_predictions = model.predict([x_audio_val, x_video_val, x_physio_val], verbose=0).flatten()
 
-        mae_scores.append(val_mae)
-        rmse_scores.append(val_rmse)
+        # Computing the evaluation metrics
+        mse = mean_squared_error(y_val, y_predictions)
+        pearson_corr, _ = pearsonr(y_val, y_predictions)
+        
+        # Storing the scores for this fold
+        mse_scores.append(mse)
+        pearson_scores.append(pearson_corr)
+        fold_results.append({'Fold': fold, 'MSE': mse, 'Pearson_Corr': pearson_corr})
 
-        print(f"Fold {fold} - Validation MAE: {val_mae:.4f}, RMSE: {val_rmse:.4f}")
+        print(f" Fold {fold} - MSE: {mse:.4f}, Pearson_Corr: {pearson_corr:.4f}")
         fold += 1
+        
+    # Computing the mean and standard deviation of the metrics
+    mean_mse, std_mse = np.mean(mse_scores), np.std(mse_scores)
+    mean_pearson, std_pearson = np.mean(pearson_scores), np.std(pearson_scores)
 
-        # Outputting the cross validation results
+    # Outputting the cross validation results
     print(f"\n Average Cross-Validation Results ")
     print(f"{target_name.upper()} Regression Teacher ")
-    print(f"Mean MAE: {np.mean(mae_scores):.4f} ± {np.std(mae_scores):.4f}")
-    print(f"Mean RMSE: {np.mean(rmse_scores):.4f} ± {np.std(rmse_scores):.4f}")
+    print(f"Mean MSE: {np.mean(mse_scores):.4f} ± {np.std(mse_scores):.4f}")
+    print(f"Mean Pearson's: {np.mean(pearson_scores):.4f} ± {np.std(pearson_scores):.4f}")
+    
+    # Creating a DataFrame to display fold results
+    fold_results.append({'Fold': 'Mean ± Std', 'MSE': f"{mean_mse:.4f} ± {std_mse:.4f}", 'Pearson_Corr': f"{mean_pearson:.4f} ± {std_pearson:.4f}"})
+    
+    # Saving fold results to a CSV file
+    results_df = pd.DataFrame(fold_results)
+    filename = f"{target_name.lower()}_teacher_regression_results.csv"
+    results_df.to_csv(filename, index=False)
+
+    print(f"\nSaved fold results to {filename}")
     
     # Plotting the performance across folds
     plt.figure(figsize=(6, 4))
-    plt.plot(mae_scores, marker='o', label='MAE')
-    plt.plot(rmse_scores, marker='o', label='RMSE')
+    plt.plot(mse_scores, marker='o', label='MSE')
+    plt.plot(pearson_scores, marker='o', label="Pearson's r")
     plt.title(f'{target_name.capitalize()} Model Performance Across Folds')
     plt.xlabel('Fold')
-    plt.ylabel('Error')
+    plt.ylabel('Metric Value')
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.6)
     plt.tight_layout()
