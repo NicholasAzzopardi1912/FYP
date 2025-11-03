@@ -146,8 +146,8 @@ def train_teacher_model(x_audio, x_video, x_physio, y, groups, target_name='arou
     # Outputting the cross validation results
     print(f"\n Average Cross-Validation Results ")
     print(f"{target_name.upper()} Regression Teacher ")
-    print(f"Mean MSE: {np.mean(mse_scores):.4f} ± {np.std(mse_scores):.4f}")
-    print(f"Mean Pearson's: {np.mean(pearson_scores):.4f} ± {np.std(pearson_scores):.4f}")
+    print(f"Mean MSE: {mean_mse:.4f} ± {std_mse:.4f}")
+    print(f"Mean Pearson's: {mean_pearson:.4f} ± {std_pearson:.4f}")
     
     # Creating a DataFrame to display fold results
     fold_results.append({'Fold': 'Mean ± Std', 'MSE': f"{mean_mse:.4f} ± {std_mse:.4f}", 'Pearson_Corr': f"{mean_pearson:.4f} ± {std_pearson:.4f}"})
