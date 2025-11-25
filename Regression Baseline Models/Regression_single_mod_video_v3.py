@@ -43,7 +43,11 @@ def build_regression_video_model(input):
 
 # Function to perform GroupKFold Cross-Validation
 # Each fold shall train and test the model with diverse participant groups
-def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
+def group_kfold_split(X, y, groups, label_name = "Arousal"):
+    # Using the LOPO strategy by setting n_splits to the number of unique participants
+    unique_groups = np.unique(groups)
+    n_splits = len(unique_groups)
+
     gkf = GroupKFold(n_splits=n_splits) # Setting the splitter
     
     fold_results = {
@@ -109,7 +113,7 @@ def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
     plt.show()
     
 # Running GroupKFold Cross-Validation for Arousal and Valence models
-group_kfold_split(X, y_arousal, groups, n_splits = 5, label_name="Arousal")
-group_kfold_split(X, y_valence, groups, n_splits = 5, label_name="Valence")
+group_kfold_split(X, y_arousal, groups, label_name="Arousal")
+group_kfold_split(X, y_valence, groups, label_name="Valence")
 
 

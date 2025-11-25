@@ -9,22 +9,22 @@ from scipy.stats import pearsonr
 from tensorflow.keras.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
 
-# Loading the preprocessed audio dataset
-audio_df = pd.read_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/audio_data.csv")
+# Loading the preprocessed physiological dataset
+physio_df = pd.read_csv("C:/Users/nicho/OneDrive/University/Year 3/FYP/physio_data.csv")
 
 # Splitting the dataset into features and target variables
 # Removing continous and classification target columns from the feature set
 # Participant column is used for grouping in GroupKFold, hence dropped from the feature set
-X = audio_df.drop(columns=["median_arousal", "median_valence", "arousal_class", "valence_class"])
-y_arousal = audio_df["arousal_class"].values
-y_valence = audio_df["valence_class"].values
-groups = audio_df["Participant"].astype('str').values
+X = physio_df.drop(columns=["median_arousal", "median_valence", "arousal_class", "valence_class"])
+y_arousal = physio_df["arousal_class"].values
+y_valence = physio_df["valence_class"].values
+groups = physio_df["Participant"].astype('str').values
 
 # This will then ensure that participants do not appear in both training and testing sets
 X = X.drop(columns=["Participant"]).values
 
-# Function that Builds the classification neural network model
-def build_classification_audio_model(input):
+# Function that builds the classification neural network model
+def build_classification_physio_model(input):
     model = Sequential([
         Dense(128, activation='relu', input_shape=(input,)), # Input layer
         Dropout(0.3), # Dropout layer for regularization (helps to prevent overfitting)
@@ -41,7 +41,11 @@ def build_classification_audio_model(input):
 
 # Function to perform GroupKFold Cross-Validation
 # Each fold shall train and test the model with diverse participant groups
-def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
+def group_kfold_split(X, y, groups, label_name = "Arousal"):
+    # Using the LOPO strategy by setting n_splits to the number of unique participants
+    unique_groups = np.unique(groups)
+    n_splits = len(unique_groups)
+
     gkf = GroupKFold(n_splits=n_splits) # Setting the splitter
     
     fold_results = {
@@ -59,7 +63,7 @@ def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
         y_train, y_test = y[train_idx], y[test_idx]
 
         # A model is built for the current fold
-        model = build_classification_audio_model(X_train.shape[1])
+        model = build_classification_physio_model(X_train.shape[1])
 
         # Early stopping to prevent overfitting
         early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
@@ -109,8 +113,8 @@ def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
 
     # Saving the fold results to a CSV file
     results_df = pd.DataFrame(fold_results)
-    results_df.to_csv(f"{label_name.lower()}_classification_audio_groupkfold_results.csv", index=False)
-    print(f"\nSaved fold results to {label_name.lower()}_classification_audio_groupkfold_results.csv")
+    results_df.to_csv(f"{label_name.lower()}_classification_physio_groupkfold_results.csv", index=False)
+    print(f"\nSaved fold results to {label_name.lower()}_classification_physio_groupkfold_results.csv")
 
     # Plotting the test metrics across folds
     plt.figure(figsize=(6, 4))
@@ -124,5 +128,5 @@ def group_kfold_split(X, y, groups, n_splits = 5, label_name = "Arousal"):
     plt.show()
 
 # Running GroupKFold Cross-Validation for Arousal and Valence models
-group_kfold_split(X, y_arousal, groups, n_splits = 5, label_name="Arousal")
-group_kfold_split(X, y_valence, groups, n_splits = 5, label_name="Valence")
+group_kfold_split(X, y_arousal, groups, label_name="Arousal")
+group_kfold_split(X, y_valence, groups, label_name="Valence")

@@ -1,0 +1,12 @@
+student model and baseline have the same exact architecture, cus then if not well lose the whole scope of the lupi framework.
+
+
+picture on phone of architecture and make sure to read Trello clearly
+
+no hyperparameter tuning, just make sure that the student model is build just like the baseline models. 
+
+At the fusion layer of the teacher model, make sure the vector representing some datapoint has the same exact size as the vector in the student model. this will then be used to evaluate using cosine similarity, along with a formula involving mse Final loss fn = (1-A) * MSE + A*cosine_sim(T,S)
+
+where A is [0.25,0.5,0.75,1] and T is the vector of the teacher model after fusion, and S is the vector of the student model (of the same size)
+
+

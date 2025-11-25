@@ -28,5 +28,5 @@ The metrics and storing for the 3 stream regression teacher model has been updat
 
 The google spreadsheet has been created, populated, and shared
 
-Then get to work on the 3 stream classification teacher model
+ The 3 stream classification teacher model is also complete and its results have been populated
 

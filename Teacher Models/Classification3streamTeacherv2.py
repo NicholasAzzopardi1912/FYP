@@ -23,7 +23,7 @@ def encoder_branch(name_prefix, input_dim, hidden_units=(128,64), dropout=0.3, l
     # returning the input and encoded representation of the branch
     return inputs, x
 
-def build_teacher_classification(input_shapes, target_name='arousal', branch_hidden=(128,64), fusion_hidden=(128,64), dropout=0.3, l2 = 1e-4):
+def build_teacher_classification(input_shapes, target_name='arousal', branch_hidden=(128,64), fusion_hidden=(128,32), dropout=0.3, l2 = 1e-4):
     audio_dimensions, video_dimensions, physiological_dimensions = input_shapes
 
     # Create encoder branches for each modality
@@ -77,7 +77,11 @@ X_physio = physio_df.drop(
     columns=["Participant", "median_arousal", "median_valence", "arousal_class", "valence_class"]).values
 
 
-def train_teacher_model(x_audio, x_video, x_physio, y, groups, target_name='arousal', n_splits=5, epochs=200, batch_size=64, patience=15):
+def train_teacher_model(x_audio, x_video, x_physio, y, groups, target_name='arousal', epochs=200, batch_size=64, patience=15):
+    # Using the LOPO strategy by setting n_splits to the number of unique participants
+    unique_groups = np.unique(groups)
+    n_splits = len(unique_groups)
+    
     gkf = GroupKFold(n_splits=n_splits)
     fold = 1
     
