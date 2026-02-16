@@ -1,0 +1,10 @@
+12122025 UPDATES AND NOTES
+
+I want to first mention that alot of the notes from last session still apply as over the past two weeks ive been busy with the projects of the units.
+
+Student model was executed
+Populated the results into the google spreadsheet
+emailed kostas about the results being worse than the baseline
+he provided three experiments to apply as i have not gotten to them
+then let him know of the results you obtained.
+

@@ -1,0 +1,20 @@
+Updated all 8 models to use LOPO, executed them and updated their results also in the google spreadsheet
+
+developed the regression student model where the chosen standard info is audio
+
+
+kl divergence at (rather than after fusion where we have the representation layer) output layer 2d of student rep and teacher rep using kl divergence rather than cosine similarity
+
+very similar implementation to what we have done in the previous student
+
+regression student model is done cause i chose audio and results for video and phyio will be very similar so no need to do them.
+
+classification now obviously has diff target variables and will be based on probability of prediction
+
+we have 3 classification models to do
+
+
+
+
+
+

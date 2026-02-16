@@ -17,3 +17,31 @@ https://towardsdatascience.com/activation-functions-in-neural-networks-how-to-ch
 
 Rather than using the default 80/20 train test split, resort to using 5 cross validation for all models
 https://scikit-learn.org/1.0/modules/generated/sklearn.model_selection.GroupKFold.html
+
+
+
+
+One from literature review
+[1]V. Vapnik and A. Vashist, “A new learning paradigm: Learning using privileged information,” Neural Networks, vol. 22, no. 5–6, pp. 544–557, Jul. 2009, doi: https://doi.org/10.1016/j.neunet.2009.06.042.
+‌
+[1]V. Vapnik, R. Izmailov, A. Gammerman, and V. Vovk, “Learning Using Privileged Information: Similarity Control and Knowledge Transfer,” Journal of Machine Learning Research, vol. 16, pp. 2023–2049, 2015, Accessed: Dec. 03, 2025. [Online]. Available: https://jmlr.org/papers/volume16/vapnik15b/vapnik15b.pdf
+‌
+
+[1]D. Lopez-Paz, L. Bottou, B. Schölkopf, and V. Vapnik, “Unifying distillation and privileged information,” arXiv.org, 2015. https://arxiv.org/abs/1511.03643 (accessed Dec. 03, 2025).
+‌
+[1]A. Momeni and K. Tatwawadi, “Understanding LUPI (Learning using Privileged Information).” Accessed: Dec. 03, 2025. [Online]. Available: https://web.stanford.edu/~kedart/files/lupi.pdf
+‌
+[1]Konstantinos Makantasis, Kosmas Pinitas, A. Liapis, and G. N. Yannakakis, “From the Lab to the Wild: Affect Modeling Via Privileged Information,” IEEE Transactions on Affective Computing, vol. 15, no. 2, pp. 380–392, Apr. 2023, doi: https://doi.org/10.1109/taffc.2023.3265072.
+‌
+
+[1]M. Aslam, M. Zeeshan, M. Pedersoli, A. Koerich, S. Bacon, and E. Granger, “Privileged Knowledge Distillation for Dimensional Emotion Recognition in the Wild.” Accessed: Dec. 03, 2025. [Online]. Available: https://openaccess.thecvf.com/content/CVPR2023W/FGAHI/papers/Aslam_Privileged_Knowledge_Distillation_for_Dimensional_Emotion_Recognition_in_the_Wild_CVPRW_2023_paper.pdf
+‌
+
+[1]M. H. Aslam, M. Pedersoli, Koerich, Alessandro Lameiras, and E. Granger, “Multi Teacher Privileged Knowledge Distillation for Multimodal Expression Recognition,” arXiv.org, 2024. https://arxiv.org/abs/2408.09035 (accessed Dec. 03, 2025).
+‌
+
+[1]F. Ringeval, A. Sonderegger, J. Sauer, and D. Lalanne, “Introducing the RECOLA multimodal corpus of remote collaborative and affective interactions,” 2013 10th IEEE International Conference and Workshops on Automatic Face and Gesture Recognition (FG), Apr. 2013, doi: https://doi.org/10.1109/fg.2013.6553805.
+‌
+
+Z. Lian et al., "MERBench: A Unified Evaluation Benchmark for Multimodal Emotion Recognition," arXiv:2401.03429v3, 2024. [Online]. Available: https://arxiv.org/abs/2401.03429 (accessed Dec. 03, 2025).
+
