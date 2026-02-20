@@ -1,0 +1,40 @@
+16/02/2026 - NOTES
+
+Experiment 1
+As the current stage is to evaluate the student regression model due to the results not being up to par to that of the respective baseline model, when performing experiment 1 on v1 of the student model, i noticed that their was something wrong, so the following describes what was done to align it well with the baseline whilst keeping the same reasoning and conceptual pipeline for the student model:
+
+To ensure that Experiment 1 (α = 0) correctly validates the student implementation, the training pipeline was modified so that when the teacher influence parameter α equals 0, the student model is trained using the standard Keras compile() and fit() procedure with pure Mean Squared Error (MSE) loss, identical to the baseline audio regressor. In the original implementation, even when α = 0, the student was still trained through the custom LUPI training loop and teacher-related components were instantiated, which introduced unintended differences in optimisation dynamics and caused performance divergence from the baseline. The revised implementation introduces a conditional branch inside the cross-validation loop: if α = 0, the student is trained exactly as a standalone audio model (no teacher, no representation loss, no custom train_step); if α > 0, the LUPI framework is activated, where an additional cosine-distance term penalises deviations between the teacher’s fusion-layer representation and the student’s intermediate representation. This change preserves the conceptual integrity of the LUPI framework while ensuring that Experiment 1 functions strictly as a validation check that the student architecture behaves identically to the baseline when no privileged information is used.
+
+
+****************************************************************************
+Experiment 2 – Effect of Squared Cosine Representation Loss
+
+Squaring the cosine-distance representation loss reduced its dominance over the MSE label loss, addressing the imbalance highlighted in Experiment 1.
+
+Performance improved slightly at lower alpha values, particularly at α = 0.25, suggesting that small amounts of privileged information can act as a mild regulariser.
+
+For arousal, the best Pearson correlation improved to ~0.31 (α = 0.25), compared to lower stability in the unsquared setting.
+
+For valence, α = 0.25 also performed best, with modest Pearson improvements over higher alphas.
+
+As alpha increased (≥ 0.5), performance consistently degraded, indicating that excessive reliance on the teacher representation harms label learning.
+
+At α = 1.0, performance collapsed for both targets, confirming that representation alignment alone is insufficient for regression learning.
+
+Importantly, none of the LUPI configurations outperformed the baseline audio-only regression model, which remained the strongest performer.
+
+**************************************************************************************************
+
+Experiment 3 – Video Student (Privileged Multimodal Teacher)
+
+Video baseline outperforms all LUPI configurations for both arousal and valence.
+
+Best LUPI performance occurs at moderate α (≈0.5) but still remains below baseline.
+
+Increasing α degrades performance, with α = 1 collapsing, confirming labels are essential.
+
+Squared cosine stabilises training but does not produce performance gains.
+
+Overall, privileged representation alignment does not improve unimodal video regression in this setup.
+
+Conclusion: LUPI, as implemented via cosine-based representation matching, does not enhance performance even when applied to a weaker modality (video).

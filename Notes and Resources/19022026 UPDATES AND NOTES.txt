@@ -1,0 +1,7 @@
+19022026 UPDATES AND NOTES
+
+alpha = 0.0000001 so that it runs the second part
+
+send email to him on results
+
+progress report feedback
