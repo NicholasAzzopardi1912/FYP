@@ -1,0 +1,147 @@
+🔵 Overall vs Baseline
+
+Both student models improve over the audio-only baseline for arousal.
+
+Improvements for valence are smaller and less consistent.
+
+Moderate teacher influence (α = 0.25–0.75) performs best.
+
+Pure privileged training (α = 1) is not optimal.
+
+🔵 Arousal
+
+Both LUPI models outperform the baseline in accuracy and F1.
+
+Representation alignment (α = 0.25) gives the strongest overall performance.
+
+KL distillation shows more stable performance across α values.
+
+Representation alignment collapses at α = 1, whereas KL remains stable.
+
+Best Pearson correlation achieved with KL at α = 0.75.
+
+Conclusion: Both mechanisms help arousal, with a slight edge to representation alignment at low α.
+
+🔵 Valence
+
+Representation alignment consistently outperforms both baseline and KL.
+
+Best valence results achieved with representation alignment at α = 0.75.
+
+KL distillation provides minimal or inconsistent improvements.
+
+Representation alignment collapses at α = 1 (no ground-truth anchor).
+
+Conclusion: Valence benefits more from internal representation alignment than from prediction distillation.
+
+🔵 Comparative Takeaways
+
+Representation alignment transfers richer information than KL.
+
+KL is more stable but generally slightly weaker.
+
+Moderate α values provide the best balance between ground truth and privileged guidance.
+
+Internal feature guidance appears more beneficial than output-level distillation.
+
+
+
+🔵 Model 3 – Combined Representation + KL Distillation
+🔵 Overall vs Baseline
+
+Model 3 consistently improves over the audio-only baseline for arousal.
+
+For valence, improvements are moderate but less pronounced, similar to previous models.
+
+Moderate α values (0.5–0.75) again provide the strongest balance.
+
+Unlike Model 1, Model 3 does not collapse at α = 1.
+
+Combined supervision appears more stable than representation-only training.
+
+🔵 Arousal
+Performance Pattern
+
+Model 3 performs very similarly to Model 2 (KL) in terms of mean accuracy and F1.
+
+It does not clearly outperform Model 1 at low α (0.25).
+
+Best performance is achieved around α = 0.75.
+
+Stability
+
+Unlike representation alignment alone, Model 3 remains stable at α = 1.
+
+Pearson correlations remain positive and competitive across α values.
+
+Variance across folds is reasonable and comparable to KL.
+
+Interpretation
+
+Adding KL prevents the collapse observed in pure representation alignment.
+
+However, combining both losses does not significantly outperform the best individual mechanism.
+
+It behaves more like a slightly regularised KL model.
+
+Conclusion for Arousal
+
+Model 3 is stable and competitive, but
+
+It does not clearly exceed Model 1 (best low-α rep model) nor
+
+Does it significantly exceed Model 2 (best KL at α = 0.75).
+
+It mainly improves robustness rather than peak performance.
+
+🔵 Valence
+Performance Pattern
+
+Model 3 improves over baseline.
+
+However, it does not surpass the best representation-only results.
+
+Best valence performance still comes from:
+
+Model 1 (Representation Alignment, α ≈ 0.75).
+
+Behaviour at α = 1
+
+Unlike Model 1, Model 3 does not collapse at α = 1.
+
+However, performance at α = 1 is not optimal.
+
+Interpretation
+
+Valence benefits more from internal representation alignment.
+
+Adding KL does not provide additional gain.
+
+Combined loss slightly dilutes the representation-specific advantage.
+
+Conclusion for Valence
+
+Model 3 is stable,
+
+But representation alignment alone remains the strongest approach.
+
+🔵 Updated Comparative Takeaways (Now Including Model 3)
+1️⃣ Representation alignment transfers deeper structural information
+
+Best peak performance (especially for valence).
+
+2️⃣ KL distillation is more stable
+
+Does not collapse at α = 1.
+
+3️⃣ Combined model increases robustness
+
+But does not significantly outperform the best single mechanism.
+
+4️⃣ Moderate α remains optimal
+
+Across all three models, α = 0.5–0.75 consistently performs best.
+
+5️⃣ Pure privileged training (α = 1) is suboptimal
+
+Across all models, removing ground-truth supervision degrades performance.

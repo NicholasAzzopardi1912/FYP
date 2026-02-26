@@ -1,4 +1,4 @@
-# Classification Student Model (Representation Alignment via Cosine Distance)
+# Classification Student Model (Representation Alignment via Cosine Distance + Prediction Distillation with KL Divergence)
 
 # Importing Libraries
 import numpy as np
@@ -23,12 +23,12 @@ def encoder_branch(name_prefix, input_dim, hidden_units=(128, 64), dropout=0.3, 
         x = layers.Dense(units, activation="relu",
                         kernel_regularizer=regularizers.l2(l2),
                         name=f"{name_prefix}_dense_{i+1}")(x)
-        # Dropout layer for regularization
+        
+        # Dropout for regularization
         x = layers.Dropout(dropout, name=f"{name_prefix}_dropout_{i+1}")(x)
-    # Returning the input and encoded representation of the branch
+    # Returning the input and encoded representation
     return inputs, x
 
- 
 def build_teacher_classification(input_shapes, target_name="arousal", branch_hidden=(128, 64), fusion_hidden=(128, 32), dropout=0.3, l2=1e-4):
     # Unpacking input shapes for each modality
     audio_dimensions, video_dimensions, physiological_dimensions = input_shapes
@@ -38,10 +38,10 @@ def build_teacher_classification(input_shapes, target_name="arousal", branch_hid
     video_input, video_encoded = encoder_branch("video", video_dimensions, branch_hidden, dropout, l2)
     physio_input, physio_encoded = encoder_branch("physio", physiological_dimensions, branch_hidden, dropout, l2)
 
-    # Fusion Layer: Concatenating the encoded outputs from all branches
+    # Fusion Layer: Concatenating encoded outputs from all branches
     fused = layers.Concatenate(name="fusion_layer")([audio_encoded, video_encoded, physio_encoded])
 
-    # Fusion head to apply further processing after fusion 
+    # Fusion head to apply further processing after fusion
     x = fused
     for i, units in enumerate(fusion_hidden):
         x = layers.Dense(units, activation="relu",
@@ -50,7 +50,7 @@ def build_teacher_classification(input_shapes, target_name="arousal", branch_hid
         
         x = layers.Dropout(dropout, name=f"fusion_dropout_{i+1}")(x)
 
-    # Output layer for binary classification with sigmoid activation
+    # Output layer for binary classification (sigmoid probability)
     output = layers.Dense(1, activation="sigmoid", name=f"{target_name}_output")(x)
 
     # Defining the full teacher model with three input branches and single output
@@ -75,7 +75,7 @@ def build_audio_student_classification_model(input_dimensions):
     # Dropout for regularization
     x = layers.Dropout(0.3, name="dropout_2")(x)
 
-    # Bottleneck representation used for LUPI alignment with teacher
+    # Bottleneck representation
     rep = layers.Dense(32, activation="relu", name="student_representation")(x)
 
     # Final binary prediction layer with sigmoid activation
@@ -94,23 +94,24 @@ def cosine_distance(T, S):
     # Cosine similarity is the dot product of the normalised vectors
     cosine_similarity = tf.reduce_sum(T_normalised * S_normalised, axis=1)
 
-    # Converting similarity to distance
+    # Convert similarity to distance
     cosine_distance = 1.0 - cosine_similarity
 
     # Mean distance across the batch
     return tf.reduce_mean(cosine_distance)
 
 
-class LUPIStudentClassifier(tf.keras.Model):
-    def __init__(self, student_model, teacher_representation_model, alpha=0.5, name="lupi_student_classifier"):
-        # Wrapper model that trains a student with optional teacher representation loss
+class LUPIStudentClassifierCombined(tf.keras.Model):
+    def __init__(self, student_model, teacher_representation_model, teacher_prediction_model, alpha=0.5, name="lupi_student_classifier_combined"):
+        # Wrapper model combines: BCE (labels) + representation alignment + KL distillation
         super().__init__(name=name)
         self.student_model = student_model
         self.teacher_representation_model = teacher_representation_model
-        # Alpha controls the bias between task loss and representation loss
+        self.teacher_prediction_model = teacher_prediction_model
+        # Alpha controls weight on privileged guidance vs ground truth supervision
         self.alpha = float(alpha)
 
-        # Sub model to extract the students bottleneck representation
+        # Sub model to extract the student's bottleneck representation
         self.student_rep_model = tf.keras.Model(
             inputs=self.student_model.input,
             outputs=self.student_model.get_layer("student_representation").output)
@@ -119,10 +120,14 @@ class LUPIStudentClassifier(tf.keras.Model):
         self.loss_tracker = tf.keras.metrics.Mean(name="loss")
         self.bce_tracker  = tf.keras.metrics.Mean(name="bce_loss")
         self.rep_tracker  = tf.keras.metrics.Mean(name="representation_loss")
+        self.kl_tracker   = tf.keras.metrics.Mean(name="kl_loss")
+
+        # KL divergence function
+        self.kl_fn = tf.keras.losses.KLDivergence()
 
     @property
     def metrics(self):
-        return [self.loss_tracker, self.bce_tracker, self.rep_tracker]
+        return [self.loss_tracker, self.bce_tracker, self.rep_tracker, self.kl_tracker]
 
     def call(self, audio_x, training=False):
         # Forward pass uses the underlying student model
@@ -134,37 +139,51 @@ class LUPIStudentClassifier(tf.keras.Model):
 
         y = tf.cast(tf.reshape(y, (-1, 1)), tf.float32)
 
-        # Audio is used by the student, while video and physio are only used by the teacher for representation learning
+        # Audio is used by the student, while video and physio are only used by the teacher
         audio_x = x["audio"]
         video_x = x["video"]
         physio_x = x["physio"]
 
         with tf.GradientTape() as tape:
             # Student prediction using audio input
-            y_hat = self.student_model(audio_x, training=True)
+            student_probability = self.student_model(audio_x, training=True)
 
             # Task loss being computed as binary cross-entropy between true labels and student predictions
-            bce = tf.keras.losses.binary_crossentropy(y, y_hat)
+            bce = tf.keras.losses.binary_crossentropy(y, student_probability)
             bce_loss = tf.reduce_mean(bce)
 
             if self.alpha == 0.0:
                 # If alpha is 0, the teacher guidance is ignored and train normally
                 rep_loss = tf.constant(0.0, dtype=tf.float32)
+                kl_loss = tf.constant(0.0, dtype=tf.float32)
                 total_loss = bce_loss
             else:
                 # Teacher representation from all modalities (privileged information)
                 T = self.teacher_representation_model([audio_x, video_x, physio_x], training=False)
                 # Student representation from audio input
                 S = self.student_rep_model(audio_x, training=True)
-                
                 # Representation loss is the cosine distance between the teacher and student representations
                 rep_loss = cosine_distance(T, S)
-
                 # Squaring to penalise larger representation misalignments more heavily
                 rep_loss = tf.square(rep_loss)
 
-                # Weighted combination of BCE and representation loss based on alpha
-                total_loss = (1.0 - self.alpha) * bce_loss + self.alpha * rep_loss
+                # Teacher predicted probability (privileged prediction)
+                teacher_probability = self.teacher_prediction_model([audio_x, video_x, physio_x], training=False)
+                
+                # Clip probabilities to avoid numerical issues inside KL
+                eps = 1e-7
+                teacher_probability = tf.clip_by_value(teacher_probability, eps, 1.0 - eps)
+                student_probability = tf.clip_by_value(student_probability, eps, 1.0 - eps)
+
+                # Convert sigmoid probability into 2-class distributions
+                teacher_distribution = tf.concat([1.0 - teacher_probability, teacher_probability], axis=1)
+                student_distribution = tf.concat([1.0 - student_probability, student_probability], axis=1)
+
+                # KL divergence loss
+                kl_loss = self.kl_fn(teacher_distribution, student_distribution)
+
+                # Total loss is a weighted combination of BCE, representation alignment, and KL divergence
+                total_loss = (1.0 - self.alpha) * bce_loss + self.alpha * (rep_loss + kl_loss)
 
         # Backpropagation on the student model's trainable variables
         gradients = tape.gradient(total_loss, self.student_model.trainable_variables)
@@ -174,12 +193,14 @@ class LUPIStudentClassifier(tf.keras.Model):
         self.loss_tracker.update_state(total_loss)
         self.bce_tracker.update_state(bce_loss)
         self.rep_tracker.update_state(rep_loss)
+        self.kl_tracker.update_state(kl_loss)
 
         return {m.name: m.result() for m in self.metrics}
     
     def test_step(self, data):
         # Evaluation step using audio-only input (no privileged information)
         x, y = data
+
         y = tf.cast(tf.reshape(y, (-1, 1)), tf.float32)
         
         # The input can be either a dictionary or raw arrays
@@ -188,21 +209,23 @@ class LUPIStudentClassifier(tf.keras.Model):
         else:
             audio_x = x
 
-        # Student prediction
-        y_hat = self.student_model(audio_x, training=False)
+        # Student prediction probability
+        student_probability = self.student_model(audio_x, training=False)
 
         # Classification loss on held out participant
-        bce = tf.keras.losses.binary_crossentropy(y, y_hat)
+        bce = tf.keras.losses.binary_crossentropy(y, student_probability)
         bce_loss = tf.reduce_mean(bce)
 
-        # Representation loss not computed at test time
+        # Privileged losses are not computed at test time
         rep_loss = tf.constant(0.0, dtype=tf.float32)
+        kl_loss = tf.constant(0.0, dtype=tf.float32)
         total_loss = bce_loss
         
         # Updating trackers
         self.loss_tracker.update_state(total_loss)
         self.bce_tracker.update_state(bce_loss)
         self.rep_tracker.update_state(rep_loss)
+        self.kl_tracker.update_state(kl_loss)
 
         return {m.name: m.result() for m in self.metrics}
     
@@ -230,7 +253,7 @@ X_physio = physio_df.drop(
     columns=["Participant", "median_arousal", "median_valence", "arousal_class", "valence_class"]).values
 
 
-def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name="arousal", alpha=0.0, student_epochs=50, student_batch_size=32, teacher_epochs=200, teacher_batch_size=64, teacher_patience=15, student_patience=8):
+def train_student_classifier_combined(X_audio, X_video, X_physio, y, groups, target_name="arousal", alpha=0.0, student_epochs=50, student_batch_size=32, teacher_epochs=200, teacher_batch_size=64, teacher_patience=15, student_patience=8):
     # LOPO protocol using GroupKFold to ensure each fold leaves a single participant out
     unique_groups = np.unique(groups)
     n_splits = len(unique_groups)
@@ -291,7 +314,7 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
                 callbacks=[early_stopping_teacher],
                 verbose=0)
             
-            # Extracting the teacher fusion representation to act as privileged information for the student
+            # Extracting the teacher fusion representation (privileged fusion features)
             teacher_representation_model = tf.keras.Model(
                 inputs=teacher_model.inputs,
                 outputs=teacher_model.get_layer("fusion_dense_2").output,
@@ -299,9 +322,17 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
             
             teacher_representation_model.trainable = False
 
+            # Extracting the teacher's probabilistic outputs (privileged probabilities)
+            teacher_prediction_model = tf.keras.Model(
+                inputs=teacher_model.inputs,
+                outputs=teacher_model.output,
+                name="teacher_prediction_model")
+            
+            teacher_prediction_model.trainable = False
+
             # Build student and wrap with LUPI training logic
             student = build_audio_student_classification_model(X_audio_train.shape[1])
-            lupi_model = LUPIStudentClassifier(student, teacher_representation_model, alpha=alpha)
+            lupi_model = LUPIStudentClassifierCombined(student, teacher_representation_model, teacher_prediction_model, alpha=alpha)
             lupi_model.compile(optimizer=tf.keras.optimizers.Adam(1e-3))
 
             # Provide all modalities as input during training
@@ -362,7 +393,7 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
     results_df.loc[n_splits] = ["Mean ± Std", f"{mean_accuracy:.6f} ± {std_acc:.6f}", f"{mean_f1:.6f} ± {std_f1:.6f}", f"{mean_pearson:.6f} ± {std_pearson:.6f}"]
 
     # Exporting results to CSV
-    out_csv = f"audio_student_classifier_{target_name}_alpha_{alpha}.csv"
+    out_csv = f"audio_student_classifier_Combined_{target_name}_alpha_{alpha}.csv"
     results_df.to_csv(out_csv, index=False)
     print(f"Saved results to {out_csv}")
 
@@ -371,7 +402,7 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
     #plt.plot(range(1, n_splits + 1), test_accuracy_scores, marker="o", label="Test Accuracy")
     #plt.plot(range(1, n_splits + 1), test_f1_scores, marker="o", label="Test F1")
     #plt.plot(range(1, n_splits + 1), test_pearson_scores, marker="o", label="Test Pearson r")
-    #plt.title(f"Student ({target_name}) - RepAlign - alpha={alpha}")
+    #plt.title(f"Student ({target_name}) - Combined - alpha={alpha}")
     #plt.xlabel("Fold")
     #plt.ylabel("Score")
     #plt.grid(True, linestyle="--", alpha=0.6)
@@ -382,7 +413,7 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
 # Running the training for both arousal and valence targets across different alpha values to compare the effect of LUPI on student performance
 for alpha in [0.25, 0.5, 0.75, 1.0]:
     for target_name, y_target in {"arousal": y_arousal, "valence": y_valence}.items():
-        train_student_classifier(
+        train_student_classifier_combined(
             X_audio=X_audio, X_video=X_video, X_physio=X_physio,
             y=y_target, groups=groups,
             target_name=target_name,
