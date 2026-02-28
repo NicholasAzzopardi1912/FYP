@@ -10,6 +10,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from scipy.stats import pearsonr
+import os
+import json
+
+
+RUN_DIR = "runs_audio_student_regression"
+os.makedirs(RUN_DIR, exist_ok=True)
 
 def encoder_branch(name_prefix, input_dim, hidden_units=(128,64), dropout=0.3, l2=1e-4):
     # Input vector for the modality
@@ -85,7 +91,7 @@ def build_audio_student_regression_model(input_dimensions):
     
     return model
 
-def cosine_distance(T, S, epsilon=1e-8):
+def cosine_distance(T, S):
     # L2 normalise both representations to compute cosine similarity
     T_normalised = tf.nn.l2_normalize(T, axis=1)
     S_normalised = tf.nn.l2_normalize(S, axis=1)
@@ -238,6 +244,9 @@ def train_student_regressor(X_audio, X_video, X_physio, y, groups, target_name =
     for fold, (train_idx, test_idx) in enumerate(gkf.split(X_audio, y, groups=groups), start=1):
         print(f"\nFold {fold}/{n_splits}")
 
+        fold_dir = os.path.join(RUN_DIR, f"{target_name}", f"alpha_{alpha}", f"fold_{fold:02d}")
+        os.makedirs(fold_dir, exist_ok=True)
+
         # Splitting audio data and targets into training and testing sets based on the current fold's indices
         X_audio_train, X_audio_test = X_audio[train_idx], X_audio[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
@@ -258,6 +267,8 @@ def train_student_regressor(X_audio, X_video, X_physio, y, groups, target_name =
                 callbacks=[early_stopping_student],
                 verbose=0)
             
+            student.save(os.path.join(fold_dir, "student.keras"))
+
             # Prediction on held-out participant
             y_pred = student.predict(X_audio_test, verbose=0).flatten()
 
@@ -307,8 +318,34 @@ def train_student_regressor(X_audio, X_video, X_physio, y, groups, target_name =
                 callbacks=[early_stopping_student],
                 verbose=0)
 
+            # Saving the trained student
+            student.save(os.path.join(fold_dir, "student.keras"))
+
+            # Saving the teacher model
+            teacher_model.save(os.path.join(fold_dir, "teacher.keras"))
+
+            # Saving the teacher representation model
+            teacher_representation_model.save(os.path.join(fold_dir, "teacher_rep.keras"))
+            
             # Prediction using audio-only student path at test time
             y_pred = lupi_model.predict(X_audio_test, verbose=0).flatten()
+
+        # Saving predictions and metadata
+        np.save(os.path.join(fold_dir, "y_test.npy"), y_test)
+        np.save(os.path.join(fold_dir, "y_pred.npy"), y_pred)
+        np.save(os.path.join(fold_dir, "test_idx.npy"), test_idx)
+        np.save(os.path.join(fold_dir, "train_idx.npy"), train_idx)
+
+        meta = {
+            "fold": fold,
+            "target_name": target_name,
+            "alpha": float(alpha),
+            "n_train": int(len(train_idx)),
+            "n_test": int(len(test_idx)),}
+        
+        with open(os.path.join(fold_dir, "meta.json"), "w") as f:
+            json.dump(meta, f, indent=2)
+
 
         # Evaluating the student's performance on the held-out participant using MSE and Pearson correlation
         mse = mean_squared_error(y_test, y_pred)
@@ -348,14 +385,14 @@ def train_student_regressor(X_audio, X_video, X_physio, y, groups, target_name =
     print(f"Saved results to {out_csv}")
 
     # Plotting fold-wise MSE to visualise performance stability across participants
-    plt.figure(figsize=(6, 4))
-    plt.plot(range(1, n_splits + 1), test_mse_scores, marker="o")
-    plt.title(f"Student ({target_name}) - alpha={alpha}")
-    plt.xlabel("Fold")
-    plt.ylabel("Test MSE")
-    plt.grid(True, linestyle="--", alpha=0.6)
-    plt.tight_layout()
-    plt.show()
+    #plt.figure(figsize=(6, 4))
+    #plt.plot(range(1, n_splits + 1), test_mse_scores, marker="o")
+    #plt.title(f"Student ({target_name}) - alpha={alpha}")
+    #plt.xlabel("Fold")
+    #plt.ylabel("Test MSE")
+    #plt.grid(True, linestyle="--", alpha=0.6)
+    #plt.tight_layout()
+    #plt.show()
 
 # Running the training for both arousal and valence targets across different alpha values to compare the effect of LUPI on student performance
 for alpha in [0.25, 0.5, 0.75, 1.0]:
