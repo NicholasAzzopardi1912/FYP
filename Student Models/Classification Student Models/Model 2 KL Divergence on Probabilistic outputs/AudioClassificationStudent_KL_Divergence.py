@@ -10,6 +10,11 @@ from sklearn.model_selection import GroupKFold
 from sklearn.metrics import accuracy_score, f1_score
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
+import os
+import json
+
+RUN_DIR = "runs_audio_student_classification_kl"
+os.makedirs(RUN_DIR, exist_ok=True)
 
 # Shared encoder branch for each modality in the teacher model
 def encoder_branch(name_prefix, input_dim, hidden_units=(128, 64), dropout=0.3, l2=1e-4):
@@ -113,7 +118,7 @@ class LUPIStudentClassifier(tf.keras.Model):
         return self.student_model(audio_x, training=training)
     
     def train_step(self, data):
-         # Unpacking the data where x contains modalities and y is the target label
+        # Unpacking the data where x contains modalities and y is the target label
         x, y = data
 
         y = tf.cast(tf.reshape(y, (-1, 1)), tf.float32)
@@ -236,6 +241,9 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
     for fold, (train_idx, test_idx) in enumerate(gkf.split(X_audio, y, groups=groups), start=1):
         print(f"\nFold {fold}/{n_splits}")
 
+        fold_dir = os.path.join(RUN_DIR, f"{target_name}", f"alpha_{alpha}", f"fold_{fold:02d}")
+        os.makedirs(fold_dir, exist_ok=True)
+
         # Splitting audio and targets into train and test sets
         X_audio_train, X_audio_test = X_audio[train_idx], X_audio[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
@@ -255,6 +263,8 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
                 batch_size=student_batch_size,
                 callbacks=[early_stopping_student],
                 verbose=0)
+
+            student.save(os.path.join(fold_dir, "student.keras"))
 
             # Probabilistic prediction on held-out participant
             y_prob = student.predict(X_audio_test, verbose=0).flatten()
@@ -305,11 +315,33 @@ def train_student_classifier(X_audio, X_video, X_physio, y, groups, target_name=
                 callbacks=[early_stopping_student],
                 verbose=0)
 
+            # Saving the student and teacher models for this fold
+            student.save(os.path.join(fold_dir, "student.keras"))
+            teacher_model.save(os.path.join(fold_dir, "teacher.keras"))
+
             # Probabilistic prediction using audio-only path at test time
             y_prob = lupi_model.predict(X_audio_test, verbose=0).flatten()
 
         # Converting probabilities to class labels using a threshold of 0.5
         y_pred = (y_prob >= 0.5).astype(int)
+
+        np.save(os.path.join(fold_dir, "y_test.npy"), y_test)
+        np.save(os.path.join(fold_dir, "y_prob.npy"), y_prob)
+        np.save(os.path.join(fold_dir, "y_pred.npy"), y_pred)
+        np.save(os.path.join(fold_dir, "test_idx.npy"), test_idx)
+        np.save(os.path.join(fold_dir, "train_idx.npy"), train_idx)
+
+        meta = {
+            "fold": fold,
+            "target_name": target_name,
+            "alpha": float(alpha),
+            "n_train": int(len(train_idx)),
+            "n_test": int(len(test_idx)),
+            "threshold": 0.5,
+            "distillation": "KL",
+        }
+        with open(os.path.join(fold_dir, "meta.json"), "w") as f:
+            json.dump(meta, f, indent=2)
 
         # Evaluating: Accuracy, F1, Pearson on probabilistic outputs
         accuracy = accuracy_score(y_test, y_pred)
