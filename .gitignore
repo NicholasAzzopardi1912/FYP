@@ -1,2 +1,5 @@
 # Ignore all experiment runs
 Runs/
+
+.vscode/
+Notes and Resources/
