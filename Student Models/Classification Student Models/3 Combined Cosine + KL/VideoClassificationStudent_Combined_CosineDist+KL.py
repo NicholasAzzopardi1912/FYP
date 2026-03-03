@@ -10,6 +10,11 @@ from sklearn.model_selection import GroupKFold
 from sklearn.metrics import accuracy_score, f1_score
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
+import os
+import json
+
+RUN_DIR = "runs_video_student_classification_combined"
+os.makedirs(RUN_DIR, exist_ok=True)
 
 # Shared encoder branch for each modality in the teacher model
 def encoder_branch(name_prefix, input_dim, hidden_units=(128, 64), dropout=0.3, l2=1e-4):
@@ -61,16 +66,16 @@ def build_teacher_classification(input_shapes, target_name="arousal", branch_hid
     
     return model
 
-def build_audio_student_classification_model(input_dimensions):
-    # Input layer for audio features
-    audio_input = layers.Input(shape=(input_dimensions,), name="audio_student_input")
+def build_video_student_classification_model(input_dimensions):
+    # Input layer for video features
+    video_input = layers.Input(shape=(input_dimensions,), name="video_student_input")
 
-    # First hidden layer for audio classification
-    x = layers.Dense(128, activation="relu", name="dense_128")(audio_input)
+    # First hidden layer for video classification
+    x = layers.Dense(128, activation="relu", name="dense_128")(video_input)
     # Dropout for regularization
     x = layers.Dropout(0.3, name="dropout_1")(x)
 
-    # Second hidden layer for audio classification
+    # Second hidden layer for video classification
     x = layers.Dense(64, activation="relu", name="dense_64")(x)
     # Dropout for regularization
     x = layers.Dropout(0.3, name="dropout_2")(x)
@@ -81,8 +86,8 @@ def build_audio_student_classification_model(input_dimensions):
     # Final binary prediction layer with sigmoid activation
     outputs = layers.Dense(1, activation="sigmoid", name="classification_output")(rep)
 
-    # Defining the audio-only student classification model
-    model = Model(inputs=audio_input, outputs=outputs, name="audio_student_classifier")
+    # Defining the video-only student classification model
+    model = Model(inputs=video_input, outputs=outputs, name="video_student_classifier")
 
     return model
 
@@ -129,9 +134,9 @@ class LUPIStudentClassifierCombined(tf.keras.Model):
     def metrics(self):
         return [self.loss_tracker, self.bce_tracker, self.rep_tracker, self.kl_tracker]
 
-    def call(self, audio_x, training=False):
+    def call(self, video_x, training=False):
         # Forward pass uses the underlying student model
-        return self.student_model(audio_x, training=training)
+        return self.student_model(video_x, training=training)
     
     def train_step(self, data):
         # Unpacking the data where x contains all modalities and y is the target label
@@ -139,14 +144,14 @@ class LUPIStudentClassifierCombined(tf.keras.Model):
 
         y = tf.cast(tf.reshape(y, (-1, 1)), tf.float32)
 
-        # Audio is used by the student, while video and physio are only used by the teacher
+        # Video is used by the student, while audio and physio are only used by the teacher
         audio_x = x["audio"]
         video_x = x["video"]
         physio_x = x["physio"]
 
         with tf.GradientTape() as tape:
-            # Student prediction using audio input
-            student_probability = self.student_model(audio_x, training=True)
+            # Student prediction using video input
+            student_probability = self.student_model(video_x, training=True)
 
             # Task loss being computed as binary cross-entropy between true labels and student predictions
             bce = tf.keras.losses.binary_crossentropy(y, student_probability)
@@ -160,8 +165,8 @@ class LUPIStudentClassifierCombined(tf.keras.Model):
             else:
                 # Teacher representation from all modalities (privileged information)
                 T = self.teacher_representation_model([audio_x, video_x, physio_x], training=False)
-                # Student representation from audio input
-                S = self.student_rep_model(audio_x, training=True)
+                # Student representation from video input
+                S = self.student_rep_model(video_x, training=True)
                 # Representation loss is the cosine distance between the teacher and student representations
                 rep_loss = cosine_distance(T, S)
                 # Squaring to penalise larger representation misalignments more heavily
@@ -198,19 +203,19 @@ class LUPIStudentClassifierCombined(tf.keras.Model):
         return {m.name: m.result() for m in self.metrics}
     
     def test_step(self, data):
-        # Evaluation step using audio-only input (no privileged information)
+        # Evaluation step using video-only input (no privileged information)
         x, y = data
 
         y = tf.cast(tf.reshape(y, (-1, 1)), tf.float32)
         
         # The input can be either a dictionary or raw arrays
         if isinstance(x, dict):
-            audio_x = x["audio"]
+            video_x = x["video"]
         else:
-            audio_x = x
+            video_x = x
 
         # Student prediction probability
-        student_probability = self.student_model(audio_x, training=False)
+        student_probability = self.student_model(video_x, training=False)
 
         # Classification loss on held out participant
         bce = tf.keras.losses.binary_crossentropy(y, student_probability)
@@ -267,11 +272,14 @@ def train_student_classifier_combined(X_audio, X_video, X_physio, y, groups, tar
     print(f"\nTraining student classifier for target: {target_name} with alpha: {alpha}")
     print(f"LOPO folds: {n_splits}")
 
-    for fold, (train_idx, test_idx) in enumerate(gkf.split(X_audio, y, groups=groups), start=1):
+    for fold, (train_idx, test_idx) in enumerate(gkf.split(X_video, y, groups=groups), start=1):
         print(f"\nFold {fold}/{n_splits}")
 
-        # Splitting audio and targets into train and test sets
-        X_audio_train, X_audio_test = X_audio[train_idx], X_audio[test_idx]
+        fold_dir = os.path.join(RUN_DIR, f"{target_name}", f"alpha_{alpha}", f"fold_{fold:02d}")
+        os.makedirs(fold_dir, exist_ok=True)
+
+        # Splitting video and targets into train and test sets
+        X_video_train, X_video_test = X_video[train_idx], X_video[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
 
         # Early stopping for student training
@@ -279,23 +287,25 @@ def train_student_classifier_combined(X_audio, X_video, X_physio, y, groups, tar
 
         if alpha == 0.0:
             # Baseline student training without teacher guidance
-            student = build_audio_student_classification_model(X_audio_train.shape[1])
+            student = build_video_student_classification_model(X_video_train.shape[1])
             student.compile(optimizer=tf.keras.optimizers.Adam(1e-3), loss="binary_crossentropy")
 
             student.fit(
-                X_audio_train, y_train,
+                X_video_train, y_train,
                 validation_split=0.2,
                 epochs=student_epochs,
                 batch_size=student_batch_size,
                 callbacks=[early_stopping_student],
                 verbose=0)
 
+            student.save(os.path.join(fold_dir, "student.keras"))
+
             # Probabilistic prediction on held-out participant
-            y_prob = student.predict(X_audio_test, verbose=0).flatten()
+            y_prob = student.predict(X_video_test, verbose=0).flatten()
 
         else:
             # Additional modalities available for teacher training
-            X_video_train = X_video[train_idx]
+            X_audio_train = X_audio[train_idx]
             X_physio_train = X_physio[train_idx]
 
             # Building and training the multimodal teacher on this fold
@@ -331,7 +341,7 @@ def train_student_classifier_combined(X_audio, X_video, X_physio, y, groups, tar
             teacher_prediction_model.trainable = False
 
             # Build student and wrap with LUPI training logic
-            student = build_audio_student_classification_model(X_audio_train.shape[1])
+            student = build_video_student_classification_model(X_video_train.shape[1])
             lupi_model = LUPIStudentClassifierCombined(student, teacher_representation_model, teacher_prediction_model, alpha=alpha)
             lupi_model.compile(optimizer=tf.keras.optimizers.Adam(1e-3))
 
@@ -347,12 +357,39 @@ def train_student_classifier_combined(X_audio, X_video, X_physio, y, groups, tar
                 callbacks=[early_stopping_student],
                 verbose=0)
 
-            # Probabilistic prediction using audio-only path at test time
-            y_prob = lupi_model.predict(X_audio_test, verbose=0).flatten()
+            student.save(os.path.join(fold_dir, "student.keras"))
+            teacher_model.save(os.path.join(fold_dir, "teacher.keras"))
+            teacher_representation_model.save(os.path.join(fold_dir, "teacher_rep.keras"))
+            teacher_prediction_model.save(os.path.join(fold_dir, "teacher_pred.keras"))
+
+            # Probabilistic prediction using video-only path at test time
+            y_prob = lupi_model.predict(X_video_test, verbose=0).flatten()
 
         # Converting probabilities to class labels using a threshold of 0.5
         y_pred = (y_prob >= 0.5).astype(int)
+        
+        # Save fold outputs
+        np.save(os.path.join(fold_dir, "y_test.npy"), y_test)
+        np.save(os.path.join(fold_dir, "y_prob.npy"), y_prob)
+        np.save(os.path.join(fold_dir, "y_pred.npy"), y_pred)
+        np.save(os.path.join(fold_dir, "test_idx.npy"), test_idx)
+        np.save(os.path.join(fold_dir, "train_idx.npy"), train_idx)
 
+        # Save metadata
+        meta = {
+            "fold": fold,
+            "target_name": target_name,
+            "alpha": float(alpha),
+            "n_train": int(len(train_idx)),
+            "n_test": int(len(test_idx)),
+            "threshold": 0.5,
+            "setup": "combined",
+            "representation_loss": "cosine_distance_squared",
+            "distillation": "KL",
+        }
+        with open(os.path.join(fold_dir, "meta.json"), "w") as f:
+            json.dump(meta, f, indent=2)
+            
         # Evaluating: Accuracy, F1, Pearson on probabilistic outputs
         accuracy = accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred)
@@ -393,7 +430,7 @@ def train_student_classifier_combined(X_audio, X_video, X_physio, y, groups, tar
     results_df.loc[n_splits] = ["Mean ± Std", f"{mean_accuracy:.6f} ± {std_acc:.6f}", f"{mean_f1:.6f} ± {std_f1:.6f}", f"{mean_pearson:.6f} ± {std_pearson:.6f}"]
 
     # Exporting results to CSV
-    out_csv = f"audio_student_classifier_Combined_{target_name}_alpha_{alpha}.csv"
+    out_csv = f"video_student_classifier_Combined_{target_name}_alpha_{alpha}.csv"
     results_df.to_csv(out_csv, index=False)
     print(f"Saved results to {out_csv}")
 
