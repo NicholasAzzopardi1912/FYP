@@ -9,7 +9,6 @@ from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import GroupKFold
 from sklearn.metrics import accuracy_score, f1_score
 from scipy.stats import pearsonr
-import matplotlib.pyplot as plt
 import os
 import json
 
@@ -434,18 +433,6 @@ def train_student_classifier_combined(X_audio, X_video, X_physio, y, groups, tar
     results_df.to_csv(out_csv, index=False)
     print(f"Saved results to {out_csv}")
 
-    # Plotting fold-wise metrics to visualise performance stability across participants
-    #plt.figure(figsize=(6, 4))
-    #plt.plot(range(1, n_splits + 1), test_accuracy_scores, marker="o", label="Test Accuracy")
-    #plt.plot(range(1, n_splits + 1), test_f1_scores, marker="o", label="Test F1")
-    #plt.plot(range(1, n_splits + 1), test_pearson_scores, marker="o", label="Test Pearson r")
-    #plt.title(f"Student ({target_name}) - Combined - alpha={alpha}")
-    #plt.xlabel("Fold")
-    #plt.ylabel("Score")
-    #plt.grid(True, linestyle="--", alpha=0.6)
-    #plt.legend()
-    #plt.tight_layout()
-    #plt.show()
 
 # Running the training for both arousal and valence targets across different alpha values to compare the effect of LUPI on student performance
 for alpha in [0.25, 0.5, 0.75, 1.0]:

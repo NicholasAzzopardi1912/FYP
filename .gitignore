@@ -1,5 +1,18 @@
-# Ignore all experiment runs
 Runs/
 
 .vscode/
 Notes and Resources/
+
+Student Regression Model Experiments/
+
+all_participants_data.csv
+audio_data.csv
+physio_data.csv
+processed_recola.csv
+video_data.csv
+
+**/*.pdf
+*.pdf
+
+**/*.docx
+*.docx

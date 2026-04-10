@@ -6,7 +6,6 @@ from tensorflow.keras import layers, Model, regularizers
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import GroupKFold
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from scipy.stats import pearsonr
@@ -385,15 +384,6 @@ def train_student_regressor(X_audio, X_video, X_physio, y, groups, target_name =
     results_df.to_csv(out_csv, index=False)
     print(f"Saved results to {out_csv}")
 
-    # Plotting fold-wise MSE to visualise performance stability across participants
-    #plt.figure(figsize=(6, 4))
-    #plt.plot(range(1, n_splits + 1), test_mse_scores, marker="o")
-    #plt.title(f"Student ({target_name}) - alpha={alpha}")
-    #plt.xlabel("Fold")
-    #plt.ylabel("Test MSE")
-    #plt.grid(True, linestyle="--", alpha=0.6)
-    #plt.tight_layout()
-    #plt.show()
 
 # Running the training for both arousal and valence targets across different alpha values to compare the effect of LUPI on student performance
 for alpha in [0.25, 0.5, 0.75, 1.0]:
