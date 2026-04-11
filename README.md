@@ -6,6 +6,8 @@ University of Malta — Faculty of ICT, Department of Artificial Intelligence
 ---
 
 ## Repository Structure
+
+```
 FYP/
 ├── Recola_Preprocessing.py
 ├── split_modalities.py
@@ -62,7 +64,7 @@ FYP/
 ├── Audio Student Regression Model/
 ├── Physio Student Regression Model/
 └── Video Student Regression Model/
-
+```
 ---
 
 ## Directory Overview
